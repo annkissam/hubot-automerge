@@ -1,6 +1,6 @@
 {
-  "name": "annkissam-automerge",
-  "description": "An example script package for Hubot",
+  "name": "hubot-automerge",
+  "description": "A package for Hubot that takes care of merging branches on push",
   "version": "1.0.0",
   "author": "Florin Popa <florin.popa@annkissam.com>",
   "license": "MIT",
