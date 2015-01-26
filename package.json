@@ -1,0 +1,41 @@
+{
+  "name": "annkissam-automerge",
+  "description": "An example script package for Hubot",
+  "version": "1.0.0",
+  "author": "Florin Popa <florin.popa@annkissam.com>",
+  "license": "MIT",
+
+  "keywords": [
+    "hubot",
+    "hubot-scripts"
+  ],
+
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hubot-scripts/hubot-example.git"
+  },
+
+  "bugs": {
+    "url": "https://github.com/hubot-scripts/hubot-example/issues"
+  },
+
+  "dependencies": {
+    "coffee-script": "~1.6"
+  },
+
+  "devDependencies": {
+    "mocha": "*",
+    "chai": "*",
+    "sinon-chai": "*",
+    "sinon": "*",
+    "cron": "~1.0.4",
+    "underscore": "~1.6.0",
+    "githubot": "0.4.0"
+  },
+
+  "main": "index.coffee",
+
+  "scripts": {
+    "test": "script/test"
+  }
+}
