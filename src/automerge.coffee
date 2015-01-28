@@ -11,14 +11,9 @@
 #   HUBOT_GITHUB_TOKEN
 #   HUBOT_GITHUB_USER
 #   HUBOT_GITHUB_API
-#   HUBOT_GITHUB_ORG
 #
 # Commands:
 #   hubot automerge help - Outputs a help document explaining how to use.
-#   hubot list <project> - Outputs a list of automerge branches for project.
-#   hubot list - Outputs a list of all branches that are automerged for all projects.
-#   hubot remove <project> - Clear project information from automerge.
-#   hubot remove - Clears all the information from automerge .
 #
 
 
@@ -31,10 +26,6 @@ module.exports = (robot) ->
   unless (url_api_base = process.env.HUBOT_GITHUB_API)?
     url_api_base = "https://api.github.com"
 
-  # Unless annkissam
-  unless (url_org_base = process.env.HUBOT_GITHUB_ORG)?
-    url_org_base = "annkissam"
-
   # Base listeners
   robot.respond /a(?:uto)?m(?:erge)? help/i, (msg) ->
     autoMergeHelp(msg)
@@ -43,11 +34,17 @@ module.exports = (robot) ->
     autoMergeList(msg)
 
   ## http://rubular.com/r/MK6ijQxE8v
-  robot.respond /a(?:uto)?m(?:erge)? remove ([-_\.0-9a-zA-Z]+)(\:([-_\.a-zA-z0-9\/]+))? into ([-_\.a-zA-z0-9\/]+)/i, (msg) ->
+  robot.respond /a(?:uto)?m(?:erge)? remove ([-_\.0-9a-zA-Z\/]+)(\:([-_\.a-zA-z0-9\/]+))? into ([-_\.a-zA-z0-9\/]+)/i, (msg) ->
     autoMergeRemove(msg)
 
-  robot.respond /a(?:uto)?m(?:erge)? add ([-_\.0-9a-zA-Z]+)(\:([-_\.a-zA-z0-9\/]+))? into ([-_\.a-zA-z0-9\/]+)/i, (msg) ->
+  robot.respond /a(?:uto)?m(?:erge)? add ([-_\.0-9a-zA-Z\/]+)(\:([-_\.a-zA-z0-9\/]+))? into ([-_\.a-zA-z0-9\/]+)/i, (msg) ->
     autoMergeAdd(msg)
+
+  robot.respond /a(?:uto)?m(?:erge)? webhook/i, (msg) ->
+    autoMergeWebHook(msg)
+
+  autoMergeWebHook = (msg) ->
+    msg.send "#{process.env.HUBOT_HEROKU_KEEPALIVE_URL}hubot/automerge?room=#{msg.message.metadata.room}"
 
   ## TODO
   autoMergeHelp = (msg) ->
@@ -63,7 +60,7 @@ module.exports = (robot) ->
     else
       mergesText = []
       _.each branches, (branch) ->
-        mergesText.push "Automatically merging #{url_org_base}/#{branch.project} from #{branch.source} into #{branch.target} on push."
+        mergesText.push "Automatically merging #{branch.project} from #{branch.source} into #{branch.target} on push."
 
       msg.send mergesText.join("\n")
 
@@ -76,7 +73,7 @@ module.exports = (robot) ->
     setBranches _.reject getBranches(), (branch) ->
       branch.project is project and branch.source is source and branch.target is target
 
-    msg.send "Stopped watching #{url_org_base}/#{project}:#{source} into #{target}."
+    msg.send "Stopped watching #{project}:#{source} into #{target}."
 
   ##
   autoMergeAdd = (msg) ->
@@ -85,7 +82,7 @@ module.exports = (robot) ->
     target = msg.match[4]
 
     saveBranch project, source, target
-    msg.send "Ok, from now on I'll merge #{url_org_base}/#{project}:#{source} into #{target} on push."
+    msg.send "Ok, from now on I'll merge #{project}:#{source} into #{target} on push."
 
   # Returns all branches.
   getBranches =  ->
@@ -106,15 +103,39 @@ module.exports = (robot) ->
     branches.push newMerge
     setBranches branches
 
+  # Route to receive the webhook.
+  robot.router.post "/hubot/automerge", (req, res) ->
+    url = require('url')
+    querystring = require('querystring')
 
-  # Gets all merges, fires ones that should be.
-  checkMerges = ->
-    #merges = getMerges()
-    #_.each merges, (merge) ->
-      #doMerge merge.room
+    query = querystring.parse(url.parse(req.url).query)
+    data = req.body
+    room = query.room
+
+    try
+      merges = checkMerges data
+      _.each merges, (merge) ->
+        robot.messageRoom doMerge(merge.project, merge.source, merge.target)
+    catch error
+      robot.messageRoom room, "Whoa, I got an error: #{error}"
+      console.log "github automerge notifier error: #{error}. Request: #{req.body}"
+
+    res.end ""
 
   # Fires the merge message.
-  doMerge = (room) ->
-    #message = _.sample(MERGE_MESSAGES)
-    #robot.messageRoom room, message
+  doMerge = (project, source, target) ->
+    github.branches(project).merge source, { base: target }, (merge) ->
+      if merge.message
+        merge.message
+      else
+        "Merged the crap out of it"
 
+  # Gets all merges, fires ones that should be.
+  checkMerges = (data) ->
+    project = data.repository.full_name
+    ref = data.ref
+
+    matchingBranches = _.filter getBranches(), (branch) ->
+      branch.project is project and "refs/heads/#{branch.source}" is ref
+
+    return matchingBranches
