@@ -124,6 +124,7 @@ module.exports = (robot) ->
 
   # Fires the merge message.
   doMerge = (project, source, target) ->
+    console.log project, source, target
     github.branches(project).merge source, { base: target }, (merge) ->
       if merge.message
         merge.message
